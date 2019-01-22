@@ -33,11 +33,18 @@ class Guider {
     }
 
     _setToLinesCache(pointA, pointB, result){
-        this._lineCache[`${pointA.name}-${pointB.name}`] = result;
+        this._lineCache[`${pointA.name}-${pointB.name}`] = result && { 
+            dist: result.dist,
+            lines: result.lines && [ ...result.lines],
+        } ;
     }
 
     _getFromLineCache( pointA, pointB){
-        return this._lineCache[`${pointA.name}-${pointB.name}`];
+       const  result = this._lineCache[`${pointA.name}-${pointB.name}`]
+        return result && { 
+            dist: result.dist,
+            lines: result.lines && [ ...result.lines],
+        };
     }
 
     _initRelatedPoints(lines){
@@ -66,6 +73,9 @@ class Guider {
     }
     
     _findLines(pointA, pointB){
+        if(pointA === pointB){
+            return { dist: 0, lines: [] };
+        }
         const root = new TreeNode(pointA);
         const distInfo = {};
         const endNodes = [];
@@ -75,6 +85,7 @@ class Guider {
     };
 
     find(pointA, pointB){
+       
         let res = this._getFromLineCache(pointA, pointB);
         if( undefined === res ){
             res = this._findLines(pointA, pointB);
@@ -122,13 +133,13 @@ class Guider {
             const dY = pB.y - pA.y;
             dist = Math.sqrt(dX*dX + dY*dY);
         }
-        return dist || Infinity;
+        return  isNaN(dist)?  Infinity : dist;
     };
 
     getNearestPoint(anyPoint){
         let resDist;
         let resultP;
-        this._points.map( (point, i) => {
+        this._points.map( point => {
             const dist = this.getPointDist(point, anyPoint);
             if(!resultP || resDist > dist  ){
                 resDist = dist;
@@ -174,7 +185,6 @@ class TreeNode {
 }
 
 function control(element){
-   console.log()
    if(element.innerHTML === 'start'){
         element.innerHTML= 'stop';
         Manager.start();
@@ -226,6 +236,9 @@ class TrafficMap{
             for(let x = 0; x < TrafficMap.COLUMN; x++){
                 const name = String.fromCharCode( startCharCode + count );
                 points[name] = { name, x, y};
+                Object.defineProperty(points[name], "name", { writable: false,});
+                Object.defineProperty(points[name], "x", { writable: false,});
+                Object.defineProperty(points[name], "y", { writable: false,});
                 count++;
             }
         }
@@ -308,7 +321,7 @@ class Car{
         this.speed = 0.01;
         this.width = 0.1;
         this.height = 0.1;
-        this.position = { ...point };
+        this.position = { x:point.x, y:point.y };
         this.hitCount = 0;
         this.taskList = [];
         this.lines = {
@@ -345,7 +358,7 @@ class Car{
         const task = this.taskList[0];
         if(!task){
             this.addTask(TaskManager.getLineTask());
-            console.log('addTask：', this.taskList[0]);
+            // console.log('addTask：', this.taskList[0]);
             return;
         }
         if(task.status === 'from'){
@@ -377,6 +390,10 @@ class Car{
     _getPlanLine(desPoint){
         const nearestPoint = TrafficMap.guider.getNearestPoint(this.position);
         const lines = TrafficMap.guider.find(nearestPoint, desPoint).lines;
+        console.log( 'position: ', this.position );
+        console.log( 'near: ', nearestPoint );
+        console.log( 'des: ', desPoint );
+        console.log('getLine: ', lines)
         lines.unshift(nearestPoint);
        return lines;
     }
@@ -530,17 +547,4 @@ class Manager {
     }
 
 };
-
 Manager.init();
-// const shopF = new Shop(TrafficMap.points.F);
-// shopF.render();
-// const car1 = new Car();
-// // car1.run();
-// function run(){
-//     window.requestAnimationFrame( () => {
-//         run();
-//     });
-//     carContext.clearRect(0,0, carCanvas.clientWidth, carCanvas.clientHeight)
-//     car1.run();
-// }
-// run();
