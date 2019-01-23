@@ -443,7 +443,10 @@ class ShopManager{
     static _initShopList(){
         this._shopList = [];
         this._shopList.push( new Shop(TrafficMap.points.A));
+        this._shopList.push( new Shop(TrafficMap.points.G));
         this._shopList.push( new Shop( TrafficMap.points.K));
+        this._shopList.push( new Shop( TrafficMap.points.O));
+        this._shopList.push( new Shop( TrafficMap.points.Z));
     }
 
     static getRandomShop(exceptShop){
@@ -499,6 +502,8 @@ class CarManager{
         this._carList = [];
         this._carList.push( new Car(TrafficMap.points.F) );
         this._carList.push( new Car(TrafficMap.points.H) );
+        this._carList.push( new Car(TrafficMap.points.T) );
+        this._carList.push( new Car(TrafficMap.points.W) );
     }
 
     static update(){
