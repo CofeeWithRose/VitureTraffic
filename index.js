@@ -184,15 +184,15 @@ class TreeNode {
 
 }
 
-function control(element){
-   if(element.innerHTML === 'start'){
-        element.innerHTML= 'stop';
-        Manager.start();
-    } else{
-        element.innerHTML= 'start';
-        Manager.stop();
-    }
-}
+// function control(element){
+//    if(element.innerHTML === 'start'){
+//         element.innerHTML= 'stop';
+//         Manager.start();
+//     } else{
+//         element.innerHTML= 'start';
+//         Manager.stop();
+//     }
+// }
 
 const canvas = document.body.querySelector('#canvas');
 const context = canvas.getContext('2d');
@@ -298,10 +298,18 @@ class Shop{
     constructor(point){
         this.point = point;
         this.status = 'wait';
-        this.render();
+        this._render();
     }
     
-    render(){
+    changeStatus(){
+        if( 'wait' === this.status){
+            this.status = 'arrived';
+        }else {
+            this.status = 'wait'
+        }
+        this._render();
+    }
+    _render(){
         context.fillStyle = this.status === 'wait'? "red" : 'yellow';
         const p = TrafficMap.getRenderPoint(this.point);
         context.beginPath();
@@ -390,10 +398,6 @@ class Car{
     _getPlanLine(desPoint){
         const nearestPoint = TrafficMap.guider.getNearestPoint(this.position);
         const lines = TrafficMap.guider.find(nearestPoint, desPoint).lines;
-        console.log( 'position: ', this.position );
-        console.log( 'near: ', nearestPoint );
-        console.log( 'des: ', desPoint );
-        console.log('getLine: ', lines)
         lines.unshift(nearestPoint);
        return lines;
     }
@@ -420,8 +424,8 @@ class Car{
         const p = TrafficMap.getRenderPoint(this.position);
         carContext.fillStyle = "white";
         carContext.beginPath();
-        const w = this.width* TrafficMap.scale *0.5;
-        const h = this.height* TrafficMap.scale *0.5;
+        const w = parseInt(this.width* TrafficMap.scale *0.5);
+        const h = parseInt( this.height* TrafficMap.scale *0.5 );
         carContext.rect( parseInt(p.x - w), parseInt( p.y - h), w*2, 2*h);
         carContext.fill();
         carContext.closePath();
@@ -494,6 +498,7 @@ class CarManager{
     static _initCarList(){
         this._carList = [];
         this._carList.push( new Car(TrafficMap.points.F) );
+        this._carList.push( new Car(TrafficMap.points.H) );
     }
 
     static update(){
@@ -520,15 +525,24 @@ class Manager {
         ShopManager.init();
         CarManager.init();
         TaskManager.init();
+        window.addEventListener('keydown', event => {
+            
+            if(event.code === 'Space'){
+                this._isRunning ?  this.stop() : this.start() ;
+            }
+        })
     }
 
     static start(){
         this.update = this._update;
         this.update();
+        this._isRunning = true;
     };
 
     static stop(){
         this.update = () => {};
+        this._isRunning = false;
+
     };
 
     static _update(){
