@@ -150,9 +150,9 @@ class Guider {
         if( undefined === res ){
             res = this._findLines(pointA, pointB);
             this._setToLinesCache(pointA, pointB, res);
-            console.log(`${pointA.name}-${pointB.name}`,' not  hit cache count: ', this._notHit? ++this._notHit: this._notHit =1);
+            // console.log(`${pointA.name}-${pointB.name}`,' not  hit cache count: ', this._notHit? ++this._notHit: this._notHit =1);
         }else{
-            console.log(`${pointA.name}-${pointB.name}`,' hit cache ');
+            // console.log(`${pointA.name}-${pointB.name}`,' hit cache ');
         }
         return res;
     }
@@ -384,7 +384,8 @@ class Car{
             lines: [],
         };
         this.id = UUid.uuid();
-        this._color = `rgb(1${point.x}5,1${point.y}5,${ point.x* point.y})`;
+        this._color = `rgb(${20 * point.x + 80},${point.x* point.y},${ point.y * 30 + 100})`;
+        this._chatCount = 0;
         this.render();
     }
     
@@ -404,14 +405,8 @@ class Car{
         }
     }
 
-    _setLines(){
+    _setLineTaskLines(task){
        
-        const task = this.taskList[0];
-        if(!task){
-            this.addTask(TaskManager.getLineTask());
-            // console.log('addTask：', this.taskList[0]);
-            return;
-        }
         if(task.status === 'from'){
             if( this.lines.destination === task.from){
                 // 到达 from 点.
@@ -436,6 +431,26 @@ class Car{
             }
         }
         
+    }
+
+    _setChatTaskLines(task){
+        //任务完成清零.
+        this.chatCount = 0;
+    }
+
+    _setLines(){
+        const task = this.taskList[0];
+
+        if(!task){
+            this.addTask(TaskManager.getLineTask());
+            return;
+        }
+        
+        if( 'line' === task.taskType){
+            this._setLineTaskLines(task);
+        }else{
+            this._setChatTaskLines(task);
+        }
     }
 
     _getPlanLine(desPoint){
@@ -512,10 +527,13 @@ class ShopManager{
 }
 
 class Task {
-    constructor(from, to){
+    
+    constructor(from, to, taskType){
+    
         this.from = from || ShopManager.getRandomShop();
         this.to = to || ShopManager.getRandomShop(this.from);
-        this.status ='from';//   from to;
+        this.status ='from'; // from to.
+        this.taskType = taskType || 'line'; // line chat.
     }
 }
 
@@ -534,7 +552,60 @@ class TaskManager{
     }
 
     static setChatTask(carA, carB){
-        // TODO
+        const nextPointInfo = this._nextPointInfo( carA, carB );
+        console.log(nextPointInfo);
+    }
+
+    static _nextPointInfo( carA, carB ){
+        const result = {
+            isAfirst: false,
+            point: null,
+        }
+        const chat = 'chat';
+        const carAType = carA.taskList[0].type;
+        const carBType = carB.taskList[0].type;
+        if( carAType === chat && carBType !==chat){
+
+            result.isAfirst = true;
+            // TO FIXED  find next cross point.
+            result.point = carA.lines.line[0];
+        }else if( carAType !== chat && carBType === chat){
+            // carB first
+            result.point = carB.lines.line[0];
+
+        }else if( carAType === chat && carBType === chat) {
+
+            if( carA.chatCount > carB.chatCount ){
+
+                result.isAfirst = true;
+                result.point = carA.lines.line[0];
+
+            }else if(carA.chatCount < carB.chatCount){
+
+                result.point = carB.lines.line[0];
+
+            }else{
+                this._isAFirstByDist( carA, carB, result );
+            }
+        }else{
+            this._isAFirstByDist( carA, carB, result );
+        }
+
+        return result;
+    }
+
+    static _isAFirstByDist( carA, carB, result ){
+
+        const nearestPoint = TrafficMap.guider.getNearestPoint(carA.position);
+        const distA = TrafficMap.guider.getPointDist(nearestPoint, carA.position);
+        const distB = TrafficMap.guider.getPointDist(nearestPoint, carB.position);
+        if( distA < distB ){
+            result.isAfirst = true;
+            result.point = carA.lines.lines[0];
+        }else{
+            result.isAfirst = false;
+            result.point = carB.lines.lines[0];
+        }
     }
 }
 
@@ -577,7 +648,7 @@ class Manager {
         CarManager.init();
         TaskManager.init();
         window.addEventListener('keydown', event => {
-            
+               
             if(event.code === 'Space'){
                 this._isRunning ?  this.stop() : this.start() ;
             }
