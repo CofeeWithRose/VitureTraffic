@@ -1,15 +1,76 @@
+class UUid{
+    static uuid(){
+        this._id = 1;
+        this.uuid = () => ++this._id;
+        return this._id;
+    }
+}
+
 class HitTestUtil{
 
+    static init(){
+        this._lastHitPaire = {};
+    }
+ 
+    static _getPaireKey(idA, idB){
+        return idA > idB? `${idA}-${idB}` : `${idB}-${idA}`;
+    }
+
+    static _getOnHitPaires(hittingPaires){
+        const res = [];
+        hittingPaires.forEach( ( hitPaire) => {
+            const {hiterA, hiterB} = hitPaire;
+            const paireKey = this._getPaireKey( hiterA.id, hiterB.id);
+            if(!this._lastHitPaire[paireKey]){
+                res.push( hitPaire );
+            }
+        })
+    
+        return res;
+    }
+
+    static _getOnLeavePaires( hittingPaires ){
+        const res = [];
+        const keys = Object.keys(this._lastHitPaire);
+        const hittingPaireKeyMap = {};
+        hittingPaires.forEach( ({hiterA, hiterB}) => hittingPaireKeyMap[this._getPaireKey(hiterA.id, hiterB.id)] = true);
+        keys.forEach( paireKey => {
+            if( this._lastHitPaire[paireKey] &&!hittingPaireKeyMap[paireKey]){
+                res.push(this._lastHitPaire[paireKey]);
+            }
+        });
+        return res;
+    }
+
+    static _resetLastHitPaires(onHitPaires, onLeavePaires){
+        onHitPaires.forEach( onHitPaire => {
+            const {hiterA, hiterB} = onHitPaire;
+            this._lastHitPaire[this._getPaireKey(hiterA.id, hiterB.id)] = onHitPaire;
+        });
+        onLeavePaires.forEach( ({hiterA, hiterB}) => this._lastHitPaire[this._getPaireKey(hiterA.id, hiterB.id)] = false);
+    }
+
     static testHit(hiters){
-        const result = [];
+
+       
+        const hittingPaires = [];
         for( let i = 0; i< hiters.length-1; i++){
             for( let j=i+1; j< hiters.length; j++ ){
                 if(this._isHit(hiters[i], hiters[j])){
-                    result.push({hiterA: hiters[i], hiterB: hiters[j]});
+                    const hiterA = hiters[i];
+                    const hiterB = hiters[j];
+                    hittingPaires.push( { hiterA, hiterB } );
                 }
             }
         }
-        return result;
+        const onHitPaires = this._getOnHitPaires(hittingPaires);
+        const onLeavePaires = this._getOnLeavePaires(hittingPaires);
+        this._resetLastHitPaires(onHitPaires, onLeavePaires);
+        return {
+            onHitPaires,
+            onLeavePaires,
+        }
+            
     }
 
     static _isHit(objA, objB){
@@ -40,7 +101,7 @@ class Guider {
     }
 
     _getFromLineCache( pointA, pointB){
-       const  result = this._lineCache[`${pointA.name}-${pointB.name}`]
+       const  result = this._lineCache[`${pointA.name}-${pointB.name}`];
         return result && { 
             dist: result.dist,
             lines: result.lines && [ ...result.lines],
@@ -85,11 +146,13 @@ class Guider {
     };
 
     find(pointA, pointB){
-       
         let res = this._getFromLineCache(pointA, pointB);
         if( undefined === res ){
             res = this._findLines(pointA, pointB);
             this._setToLinesCache(pointA, pointB, res);
+            console.log(`${pointA.name}-${pointB.name}`,' not  hit cache count: ', this._notHit? ++this._notHit: this._notHit =1);
+        }else{
+            console.log(`${pointA.name}-${pointB.name}`,' hit cache ');
         }
         return res;
     }
@@ -183,16 +246,6 @@ class TreeNode {
     }
 
 }
-
-// function control(element){
-//    if(element.innerHTML === 'start'){
-//         element.innerHTML= 'stop';
-//         Manager.start();
-//     } else{
-//         element.innerHTML= 'start';
-//         Manager.stop();
-//     }
-// }
 
 const canvas = document.body.querySelector('#canvas');
 const context = canvas.getContext('2d');
@@ -288,11 +341,6 @@ class TrafficMap{
     };
 };
 
-// TrafficMap.init();
-// console.log(TrafficMap.data);
-// TrafficMap.render();
-// console.log( TrafficMap.guider.find( TrafficMap.points.A, TrafficMap.points.J) ) ;
-
 class Shop{
 
     constructor(point){
@@ -324,7 +372,6 @@ class Car{
 
 
     constructor(point){
-        // const p = TrafficMap.getRandomPoint();
         const p = TrafficMap.points.A;
         this.speed = 0.01;
         this.width = 0.1;
@@ -336,14 +383,11 @@ class Car{
             destination: null,
             lines: [],
         };
+        this.id = UUid.uuid();
+        this._color = `rgb(1${point.x}5,1${point.y}5,${ point.x* point.y})`;
         this.render();
     }
     
-    dist(p1, p2){
-        const dX = p2.x - p1.x;
-        const dY = p2.y - p1.y;
-        return d;
-    };
     _moveToPoint(point){
         const dX = point.x - this.position.x;
         const dY = point.y - this.position.y;
@@ -360,7 +404,6 @@ class Car{
         }
     }
 
-    
     _setLines(){
        
         const task = this.taskList[0];
@@ -422,7 +465,7 @@ class Car{
 
     render(){
         const p = TrafficMap.getRenderPoint(this.position);
-        carContext.fillStyle = "white";
+        carContext.fillStyle = this._color;
         carContext.beginPath();
         const w = parseInt(this.width* TrafficMap.scale *0.5);
         const h = parseInt( this.height* TrafficMap.scale *0.5 );
@@ -445,6 +488,9 @@ class ShopManager{
         this._shopList.push( new Shop(TrafficMap.points.A));
         this._shopList.push( new Shop(TrafficMap.points.G));
         this._shopList.push( new Shop( TrafficMap.points.K));
+        this._shopList.push( new Shop( TrafficMap.points.L));
+        this._shopList.push( new Shop( TrafficMap.points.R));
+        this._shopList.push( new Shop( TrafficMap.points.S));
         this._shopList.push( new Shop( TrafficMap.points.O));
         this._shopList.push( new Shop( TrafficMap.points.Z));
     }
@@ -516,8 +562,8 @@ class CarManager{
     }
 
     static _checkHit(){
-       const hitedCarPaires = HitTestUtil.testHit(this._carList);
-       hitedCarPaires.forEach( pairCar => TaskManager.setChatTask(pairCar.hiterA, pairCar.hiterB));
+       const hitedCarInfo = HitTestUtil.testHit(this._carList);
+       hitedCarInfo.onHitPaires.forEach( pairCar => TaskManager.setChatTask(pairCar.hiterA, pairCar.hiterB));
     }
 };
 
@@ -525,7 +571,7 @@ class CarManager{
 class Manager {
 
     static init(){
-
+        HitTestUtil.init();
         TrafficMap.init();
         ShopManager.init();
         CarManager.init();
